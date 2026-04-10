@@ -16,7 +16,7 @@
 # Rat1:
 #   - create_nwb.py
 #   - tools
-##   - input_folder
+#   - input_folder
 #       - session_1
 #           - *.csv, .txt, .log files*
 #       - session_2
@@ -100,6 +100,14 @@ def parse_ISO_8601(start, end=None, show_T = False):
         f"{s}S" if s and show_T else "",
         "" if any((y, d, h, m, s)) else "T0D"
     )
+
+# takes dataframe (with column 'Time (seconds)' indicating time in seconds) and returns the element closest to 0
+def find_index_time_zero(df):
+    index_positive = np.where(df['Time (seconds)']>=0)[0][0] # first positive element
+    if np.abs(df['Time (seconds)'][index_positive]) < np.abs(df['Time (seconds)'][index_positive-1]):
+        return index_positive
+    else:
+        return index_positive-1
 
 # creates a nwb file using pynwb
 # uses global variables nwb_*
@@ -312,7 +320,9 @@ if __name__ == "__main__":
 
 
     # start time of session
-    nwb_session_start_time = datetime.fromtimestamp(df_coordinates_with_frames['Timestamp'][0])
+    # get Time (seconds) from dataframe close to 0
+    index_time_zero = find_index_time_zero(df)
+    nwb_session_start_time = datetime.fromtimestamp(df_coordinates_with_frames['Timestamp'][index_time_zero])
     timezone = tz.gettz('Europe/Amsterdam')
     nwb_session_start_time = nwb_session_start_time.replace(tzinfo=timezone)
     
