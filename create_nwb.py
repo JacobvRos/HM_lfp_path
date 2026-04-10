@@ -217,7 +217,8 @@ if __name__ == "__main__":
     parser.add_argument("--usecd", action="store_true", help = "Use current directory as root")
     parser.add_argument("--ip", action = "store", type=str, required=False, help = "Specify input folder (e.g. python file.py ip='input_folder'")
     parser.add_argument("--op", action = "store", type=str, required=False, help = "Specify output folder (e.g. python file.py op='output_folder' \n If not given op is same as ip")
-    parser.add_argument("--nr", action = "store", type=int, required=False, default=0, help = "Specify what session should be selected (int)")
+    parser.add_argument("--sess_i", action = "store", type=int, required=False, default=1, help = "Specify what session should be selected (int)")
+    parser.add_argument("--sess_f", action = "store", type=int, required=False, help = "Specify what session should be selected (int)")
     args = parser.parse_args()
 
     if args.noprint:
@@ -300,90 +301,94 @@ if __name__ == "__main__":
         if args.sf:
             print(f"Session {session_dir.name}:")
             print(paths, '\n')
-
-    # specify which session folder should be read with nr
-    paths = session_paths[args.nr]
-    # safe_read to corresponding variables
-    df_coordinates = safe_read('Coordinates_Full', paths.csv_paths, 'csv')
-    df_coordinates_with_frames = safe_read('Coordinates_Full_with_frames', paths.csv_paths, 'csv')
-    df_framewise_ts = safe_read('framewise_ts', paths.csv_paths, 'csv')
-    df_framewise_seconds = safe_read('stitched_framewise_seconds', paths.csv_paths, 'csv')
-    df_log = safe_read(next(iter(paths.log_paths)), paths.log_paths, 'log')
-    lfp_channels = safe_read('lfp_channels', paths.numpy_paths, 'npy')
-    lfp_data = safe_read('lfp_data', paths.numpy_paths, 'npy')
-    lfp_timestamps = safe_read('lfp_timestamps', paths.numpy_paths, 'npy')
-
-    df = pdf.merge_df(df_coordinates_with_frames, df_framewise_seconds, 'Time (seconds)')
-
-
-    # --- METADATA --- # Can change this
-
-
-    # start time of session
-    # get Time (seconds) from dataframe close to 0
-    index_time_zero = find_index_time_zero(df)
-    nwb_session_start_time = datetime.fromtimestamp(df_coordinates_with_frames['Timestamp'][index_time_zero])
-    timezone = tz.gettz('Europe/Amsterdam')
-    nwb_session_start_time = nwb_session_start_time.replace(tzinfo=timezone)
     
-    # nwb metadata
-    nwb_session_id = session_folders[0].name
-    nwb_session_description = f"Rat1 Hexmaze Session {nwb_session_id}"
-    nwb_experimenter = "Person"
-    nwb_lab = "Genzel Lab"
-    nwb_institution = "Donders Institute, Radboud University"
-    nwb_experiment_description = "Rat HexMaze"
-    nwb_keywords=["behavior", "ephys", "maze"],
-    nwb_related_publications="N/A",
+    if args.sess_f is None:
+        args.sess_f = args.sess_i
 
-    # rat/subject metadata
-    rat_nr = str(1)
-    subject_id = rat_nr.zfill(3)
-    rat_birthday = datetime(2019, 1, 1, 0, 0, 0, tzinfo = timezone)
-    rat_age = parse_ISO_8601(rat_birthday, nwb_session_start_time)
-    species_name = "Rattus norvegicus"
-    sex = "M"
+    for session_i in range(args.sess_i-1, args.sess_f):
+        # specify which session folder should be read with session_i
+        paths = session_paths[session_i]
+        # safe_read to corresponding variables
+        df_coordinates = safe_read('Coordinates_Full', paths.csv_paths, 'csv')
+        df_coordinates_with_frames = safe_read('Coordinates_Full_with_frames', paths.csv_paths, 'csv')
+        df_framewise_ts = safe_read('framewise_ts', paths.csv_paths, 'csv')
+        df_framewise_seconds = safe_read('stitched_framewise_seconds', paths.csv_paths, 'csv')
+        df_log = safe_read(next(iter(paths.log_paths)), paths.log_paths, 'log')
+        lfp_channels = safe_read('lfp_channels', paths.numpy_paths, 'npy')
+        lfp_data = safe_read('lfp_data', paths.numpy_paths, 'npy')
+        lfp_timestamps = safe_read('lfp_timestamps', paths.numpy_paths, 'npy')
 
-    # lfp/timeseries metadata
-    lfp_name="lfp"
-    lfp_description="lfp voltage"
-    lfp_unit="uV"
-
-    # behavior metadata
-    behavior_name = "Behavior"
-    behavior_description = "Positional data"
-
-    # position metadata
-    position_name = "Position"
+        df = pdf.merge_df(df_coordinates_with_frames, df_framewise_seconds, 'Time (seconds)')
 
 
-    # --- END METADATA --- #
+        # --- METADATA --- # Can change this
 
 
-    # create nwb file
-    nwbfile = create_nwb_file()
-    print(f"Created nwb file for session {nwb_session_id}.")
+        # start time of session
+        # get Time (seconds) from dataframe close to 0
+        index_time_zero = find_index_time_zero(df)
+        nwb_session_start_time = datetime.fromtimestamp(df_coordinates_with_frames['Timestamp'][index_time_zero])
+        timezone = tz.gettz('Europe/Amsterdam')
+        nwb_session_start_time = nwb_session_start_time.replace(tzinfo=timezone)
+        
+        # nwb metadata
+        nwb_session_id = session_folders[session_i].name
+        nwb_session_description = f"Rat1 Hexmaze Session {nwb_session_id}"
+        nwb_experimenter = "Person"
+        nwb_lab = "Genzel Lab"
+        nwb_institution = "Donders Institute, Radboud University"
+        nwb_experiment_description = "Rat HexMaze"
+        nwb_keywords=["behavior", "ephys", "maze"],
+        nwb_related_publications="N/A",
 
-    # add subject to nwb
-    subject = add_subject()
+        # rat/subject metadata
+        rat_nr = str(1)
+        subject_id = rat_nr.zfill(3)
+        rat_birthday = datetime(2019, 1, 1, 0, 0, 0, tzinfo = timezone)
+        rat_age = parse_ISO_8601(rat_birthday, nwb_session_start_time)
+        species_name = "Rattus norvegicus"
+        sex = "M"
 
-    # add lfp timeseries data
-    lfp = add_timeseries()
+        # lfp/timeseries metadata
+        lfp_name="lfp"
+        lfp_description="lfp voltage"
+        lfp_unit="uV"
 
-    # create behavior module
-    behavior_module = create_behavior_module()
-    
-    # create position object
-    position_obj = create_position_obj(position_name, df)
+        # behavior metadata
+        behavior_name = "Behavior"
+        behavior_description = "Positional data"
 
-    # add position object to behavior module
-    behavior_module.add(position_obj)
+        # position metadata
+        position_name = "Position"
 
-    # save nwbfile
-    output_name = str(session_dir.stem) + ".nwb"
-    try:
-        with NWBHDF5IO(root + output_folder + output_name, "w") as io:
-            io.write(nwbfile)
-        print(f"Saved to {root + output_folder + output_name}!")
-    except:
-        print(f"Saving NWB file to {root + output_folder + output_name} failed! File might already exist.")
+
+        # --- END METADATA --- #
+
+
+        # create nwb file
+        nwbfile = create_nwb_file()
+        print(f"Created nwb file for session {nwb_session_id}.")
+
+        # add subject to nwb
+        subject = add_subject()
+
+        # add lfp timeseries data
+        lfp = add_timeseries()
+
+        # create behavior module
+        behavior_module = create_behavior_module()
+        
+        # create position object
+        position_obj = create_position_obj(position_name, df)
+
+        # add position object to behavior module
+        behavior_module.add(position_obj)
+
+        # save nwbfile
+        output_name = str(session_folders[session_i].stem) + ".nwb"
+        try:
+            with NWBHDF5IO(root + output_folder + output_name, "w") as io:
+                io.write(nwbfile)
+            print(f"Saved to {root + output_folder + output_name}!")
+        except:
+            print(f"Saving NWB file to {root + output_folder + output_name} failed! File might already exist.")
